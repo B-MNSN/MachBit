@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Teachable Machine + micro:bit</title>
+</head>
+<body>
+    <h2>Teachable Machine Image Classifier</h2>
+
+    <input type="file" id="imageUpload" accept="image/*">
+    <br><br>
+    <img id="uploadedImage" width="200" />
+    <br><br>
+
+    <div id="label-container"></div>
+    <br>
+
+    <button onclick="connectMicrobit()">🔌 Connect to micro:bit</button>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    <script>
+
+        const modelURLPrefix = "https://teachablemachine.withgoogle.com/models/x5ykqUh2n/"; //ํYour URL model
+        let model, labelContainer, maxPredictions;
+        let port, writer;
+
+        async function loadModel() {
+            const modelURL = modelURLPrefix + "model.json";
+            const metadataURL = modelURLPrefix + "metadata.json";
+
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+
+            labelContainer = document.getElementById("label-container");
+            labelContainer.innerHTML = "";
+            for (let i = 0; i < maxPredictions; i++) {
+                labelContainer.appendChild(document.createElement("div"));
+            }
+        }
+
+        async function predictImage(image) {
+            const prediction = await model.predict(image);
+
+            let topPrediction = prediction.reduce((a, b) =>
+                a.probability > b.probability ? a : b
+            );
+
+            const percentage = (topPrediction.probability * 100).toFixed(1);
+            labelContainer.childNodes[0].innerHTML = `${topPrediction.className}: ${percentage}%`;
+
+            await sendToMicrobit(topPrediction.className);
+        }
+
+        document.getElementById("imageUpload").addEventListener("change", async (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const imageElement = document.getElementById("uploadedImage");
+                imageElement.src = URL.createObjectURL(file);
+                imageElement.onload = async () => {
+                    await predictImage(imageElement);
+                };
+            }
+        });
+
+        async function connectMicrobit() {
+            try {
+                port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 115200 });
+
+                const encoder = new TextEncoderStream();
+                encoder.readable.pipeTo(port.writable);
+                writer = encoder.writable.getWriter();
+
+                alert("✅ Connected to micro:bit!");
+            } catch (err) {
+                alert("❌ Failed to connect: " + err);
+            }
+        }
+
+        async function sendToMicrobit(message) {
+            if (writer) {
+                await writer.write(message + "\n");
+            }
+        }
+
+        window.addEventListener("load", loadModel);
+    </script>
+</body>
+</html>
