@@ -2,89 +2,87 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Teachable Machine + micro:bit</title>
+    <title>MachBit | AI & Micro:Bit</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.svg">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Kanit:wght@300;400;600&display=swap">
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.4/dist/teachablemachine-image.min.js"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"/>
 </head>
 <body>
-    <h2>Teachable Machine Image Classifier</h2>
+    <!-- Background Glow Effects -->
+    <div class="glow glow-1"></div>
+    <div class="glow glow-2"></div>
+    <div class="glow glow-3"></div>
 
-    <input type="file" id="imageUpload" accept="image/*">
-    <br><br>
-    <img id="uploadedImage" width="200" />
-    <br><br>
-
-    <div id="label-container"></div>
-    <br>
-
-    <button onclick="connectMicrobit()">🔌 Connect to micro:bit</button>
-
+    <div class="container">
+        <div class="machbit-logo">
+            <span>MachBit</span>
+            <i class="fas fa-bolt" style="color: #FFD700; text-shadow: 0 0 2px #FFA500;"></i>
+          </div>
+        <!-- <h1>MachBit</h1> -->
+        <h2>AI Vision + micro:bit Controller</h2>
+    
+        <div class="card">
+            <div class="connect-wrap">
+                <button id="btnConnectMicrobit">
+                    <span class="btn-icon"><i class="fa-solid fa-plug-circle-check"></i> </span> CONNECT MICRO:BIT
+                </button>
+                <button id="btnDisconnectMicrobit" style="display: none;">
+                    <span class="btn-icon"><i class="fa-solid fa-plug-circle-xmark"></i></span> DISCONNECT
+                </button>
+                <div id="status" class="status disconnected"><i class="fa-solid fa-plug-circle-xmark"></i> Not Connected</div>
+            </div>
+            <hr>
+            <div class="callout-box">
+                <div class="callout-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                <div class="callout-text">
+                  <h3 id="alertTitle">Please enter the model URL first</h3>
+                  <p id="alertMessage">You need to provide the URL of your Teachable Machine model before selecting a mode.</p>
+                </div>
+              </div>
+            <!-- Add this model URL section -->
+            <div class="model-url-container">
+                <label>TEACHABLE MACHINE MODEL URL</label>
+                <input type="text" id="modelUrlInput" class="model-url-input" placeholder="https://teachablemachine.withgoogle.com/models/..." >
+                <button class="load-model-btn" id="btnLoadModal">
+                    <i class="fas fa-robot"></i> LOAD AI MODEL
+                </button>
+            </div>
+            
+            <label>SELECT MODE</label>
+            <select id="modeSelect">
+                <option value="upload">📁 Upload Image</option>
+                <option value="webcam">📷 Use Webcam</option>
+            </select>
+    
+            <div id="uploadSection">
+                <div class="upload-btn-wrapper">
+                    <div class="upload-btn">
+                        <span>CHOOSE AN IMAGE OR DRAG & DROP</span>
+                        <i>📁</i>
+                        <span>PNG, JPG, or GIF</span>
+                    </div>
+                    <input type="file" id="imageUpload" accept="image/*">
+                </div>
+                <img id="uploadedImage" style="display: none;" />
+            </div>
+    
+            <div id="webcam-container" style="display: none;"></div>
+    
+            <div id="label-container"></div>
+    
+            
+        </div>
+    </div>
+    
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-    <script>
-
-        const modelURLPrefix = "https://teachablemachine.withgoogle.com/models/x5ykqUh2n/"; //ํYour URL model
-        let model, labelContainer, maxPredictions;
-        let port, writer;
-
-        async function loadModel() {
-            const modelURL = modelURLPrefix + "model.json";
-            const metadataURL = modelURLPrefix + "metadata.json";
-
-            model = await tmImage.load(modelURL, metadataURL);
-            maxPredictions = model.getTotalClasses();
-
-            labelContainer = document.getElementById("label-container");
-            labelContainer.innerHTML = "";
-            for (let i = 0; i < maxPredictions; i++) {
-                labelContainer.appendChild(document.createElement("div"));
-            }
-        }
-
-        async function predictImage(image) {
-            const prediction = await model.predict(image);
-
-            let topPrediction = prediction.reduce((a, b) =>
-                a.probability > b.probability ? a : b
-            );
-
-            const percentage = (topPrediction.probability * 100).toFixed(1);
-            labelContainer.childNodes[0].innerHTML = `${topPrediction.className}: ${percentage}%`;
-
-            await sendToMicrobit(topPrediction.className);
-        }
-
-        document.getElementById("imageUpload").addEventListener("change", async (event) => {
-            const file = event.target.files[0];
-            if (file) {
-                const imageElement = document.getElementById("uploadedImage");
-                imageElement.src = URL.createObjectURL(file);
-                imageElement.onload = async () => {
-                    await predictImage(imageElement);
-                };
-            }
-        });
-
-        async function connectMicrobit() {
-            try {
-                port = await navigator.serial.requestPort();
-                await port.open({ baudRate: 115200 });
-
-                const encoder = new TextEncoderStream();
-                encoder.readable.pipeTo(port.writable);
-                writer = encoder.writable.getWriter();
-
-                alert("✅ Connected to micro:bit!");
-            } catch (err) {
-                alert("❌ Failed to connect: " + err);
-            }
-        }
-
-        async function sendToMicrobit(message) {
-            if (writer) {
-                await writer.write(message + "\n");
-            }
-        }
-
-        window.addEventListener("load", loadModel);
-    </script>
+    <script src="/script.js"></script>
 </body>
 </html>
