@@ -1,16 +1,13 @@
-<div align="center" style="font-size: 2.5rem; font-weight: bold;">
+<h1  align="center" style="font-size: 2.5rem; font-weight: bold;">
   MachBit ⚡
-</div>
-
----
+</h1>
 
 **MachBit** is a web application project that connects an **AI Vision Model** from [Teachable Machine](https://teachablemachine.withgoogle.com/) to a **micro:bit** using the Web Serial API. It allows real-time control based on AI predictions using either webcam input or uploaded images.
 
 
 ## 🔗 Live Demo  
 Access via GitHub Pages:  
-👉 [https://your-username.github.io/machbit/](https://your-username.github.io/machbit/) *(Replace with your actual repo path)*
-
+👉 [https://b-mnsn.github.io/MachBit/](https://b-mnsn.github.io/MachBit/)
 
 ## 🔧 Features
 - ✅ Predict using **Webcam** or **Image Upload**
