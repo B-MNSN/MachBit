@@ -6,6 +6,7 @@ const modelUrlInput = document.getElementById("modelUrlInput");
 const imageUpload = document.getElementById("imageUpload");
 const modeSelect = document.getElementById("modeSelect");
 const labelContainer = document.getElementById("label-container");
+const loadingSpinner = document.getElementById("loading-spinner");
 
 // ───── Global Variables ─────
 let modelURLPrefix = "";
@@ -35,15 +36,34 @@ btnDisconnectMicrobit?.addEventListener('click', disconnectMicrobit);
 btnLoadModal?.addEventListener('click', loadModelFromInput);
 
 imageUpload?.addEventListener("change", async (event) => {
-    const file = event.target.files[0];
-    if (file) {
-        const imageElement = document.getElementById("uploadedImage");
-        imageElement.style.display = 'block';
-        imageElement.src = URL.createObjectURL(file);
-        imageElement.onload = async () => {
-            await predictImage(imageElement);
-        };
-    }
+    const imageElement = document.getElementById("uploadedImage");
+    imageElement.src = '';
+    imageElement.classList.remove('show');  
+    imageElement.style.display = 'none';
+    labelContainer.innerHTML = '';
+    loadingSpinner.style.display = 'flex';
+
+    setTimeout(async () => {
+        const file = event.target.files[0];
+        if (file) {
+            imageElement.src = URL.createObjectURL(file);
+            
+            imageElement.style.display = 'block';
+            setTimeout(() => {
+                imageElement.classList.remove('show');
+                void imageElement.offsetWidth;
+                imageElement.classList.add('show');
+            }, 50);
+
+            imageElement.onload = async () => {
+                try {
+                    await predictImage(imageElement);
+                } finally {
+                    loadingSpinner.style.display = 'none';
+                }
+            };
+        }
+    }, 500);
 });
 
 modeSelect?.addEventListener("change", async (e) => {
@@ -86,7 +106,6 @@ async function getModelURL() {
         confirmButtonColor: '#8a2be2',
         showCancelButton: true,
         cancelButtonColor: '#ff4dfb',
-        reverseButtons: true,
         inputValidator: (value) => {
             if (!value) {
                 return 'You need to enter a URL!';
